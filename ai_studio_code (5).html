@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SIMOS-B Pro Mobile - One Health</title>
+    
+    <!-- CSS & Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <style>
+        :root {
+            --primary: #1a5276; --secondary: #27ae60; --danger: #e74c3c;
+            --warning: #f39c12; --bg: #f0f2f5; --white: #ffffff;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Roboto', sans-serif; }
+        body { background-color: var(--bg); padding-bottom: 80px; overflow-x: hidden; }
+
+        /* Header Fixed */
+        .mobile-header {
+            background: var(--primary); color: white; padding: 15px;
+            display: flex; justify-content: space-between; align-items: center;
+            position: sticky; top: 0; z-index: 1000; box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+
+        /* Stats Dashboard */
+        .grid-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 15px; }
+        .stat-card {
+            background: var(--white); padding: 15px; border-radius: 15px;
+            text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            border-top: 5px solid var(--primary);
+        }
+        .stat-card h3 { font-size: 26px; color: var(--primary); }
+        .stat-card p { font-size: 10px; color: #7f8c8d; font-weight: bold; text-transform: uppercase; margin-top: 5px;}
+
+        /* Content Areas */
+        .content-section { display: none; padding: 10px; animation: slideUp 0.4s ease-out; }
+        .content-section.active { display: block; }
+        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+        .card { background: var(--white); border-radius: 20px; padding: 18px; margin-bottom: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+        h2 { font-size: 18px; margin-bottom: 15px; color: var(--primary); border-left: 4px solid var(--secondary); padding-left: 10px; }
+
+        /* Forms */
+        .form-group { margin-bottom: 15px; }
+        label { display: block; font-size: 13px; font-weight: bold; margin-bottom: 6px; color: #2c3e50; }
+        .form-control { width: 100%; padding: 12px; border: 1px solid #dcdde1; border-radius: 10px; font-size: 14px; background: #f9f9f9; }
+        .btn-submit { background: var(--secondary); color: white; border: none; padding: 16px; width: 100%; border-radius: 12px; font-weight: bold; font-size: 16px; box-shadow: 0 4px 10px rgba(39, 174, 96, 0.3); }
+
+        /* Bottom Navigation */
+        .bottom-nav {
+            position: fixed; bottom: 0; width: 100%; background: var(--white);
+            display: flex; justify-content: space-around; padding: 12px 0;
+            box-shadow: 0 -4px 15px rgba(0,0,0,0.1); z-index: 1000; border-radius: 20px 20px 0 0;
+        }
+        .nav-item { text-align: center; color: #95a5a6; flex: 1; cursor: pointer; transition: 0.3s; }
+        .nav-item i { font-size: 22px; display: block; margin-bottom: 4px; }
+        .nav-item span { font-size: 10px; font-weight: bold; }
+        .nav-item.active { color: var(--primary); transform: translateY(-5px); }
+
+        /* Map & Guides */
+        #map { height: 200px; border-radius: 15px; width: 100%; }
+        .guide-link {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 15px; background: #f8f9fa; border-radius: 12px; margin-bottom: 10px;
+            text-decoration: none; color: #2c3e50; border: 1px solid #eee;
+        }
+        .guide-link:active { background: #e9ecef; }
+        .pdf-icon { color: var(--danger); font-size: 20px; }
+    </style>
+</head>
+<body>
+
+    <header class="mobile-header">
+        <div><i class="fa-solid fa-shield-virus"></i> <span style="font-weight:700; letter-spacing: 1px;">SIMOS-B</span></div>
+        <div style="font-size: 10px; background: rgba(255,255,255,0.2); padding: 4px 10px; border-radius: 10px;">Mécheria One Health</div>
+    </header>
+
+    <!-- SECTION: DASHBOARD (HOME) -->
+    <div id="home" class="content-section active">
+        <div class="grid-stats">
+            <div class="stat-card"><h3>35</h3><p>Cas Humains</p></div>
+            <div class="stat-card"><h3>12</h3><p>Foyers Actifs</p></div>
+            <div class="stat-card"><h3>20</h3><p>Dépistages</p></div>
+            <div class="stat-card" style="border-top-color: var(--warning);"><h3>05</h3><p>Alertes Lait</p></div>
+        </div>
+
+        <div class="card">
+            <h2><i class="fa-solid fa-chart-line"></i> Évolution des Cas</h2>
+            <p style="font-size: 11px; color: #666; margin-bottom: 10px;">Tendance mensuelle à Mécheria (2026)</p>
+            <canvas id="trendChart" height="180"></canvas>
+        </div>
+
+        <div class="card">
+            <h2><i class="fa-solid fa-map-location-dot"></i> Cartographie des Foyers</h2>
+            <div id="map"></div>
+        </div>
+    </div>
+
+    <!-- SECTION: ALERTE (SIGNALEMENT) -->
+    <div id="report" class="content-section">
+        <div class="card">
+            <h2><i class="fa-solid fa- megaphone"></i> Nouveau Signalement</h2>
+            <form id="alertForm">
+                <div class="form-group">
+                    <label>Type de Déclaration</label>
+                    <select class="form-control" id="typeDecl">
+                        <option>Humain (Cas suspect/confirmé)</option>
+                        <option>Animal (Avortement/Suspicion)</option>
+                        <option>Environnement (Source suspecte)</option>
+                    </select>
+                </div>
+                
+                <!-- خانة نوع العدوى المطلوبة -->
+                <div class="form-group">
+                    <label>Source probable de l'infection</label>
+                    <select class="form-control" id="sourceInf">
+                        <option value="lait">Consommation de lait cru (Lben/Jben)</option>
+                        <option value="contact">Contact direct avec le bétail</option>
+                        <option value="sla">Manipulation des déchets de mise bas (S'la)</option>
+                        <option value="eau">Points d'eau contaminés (Dhayas)</option>
+                        <option value="inconnu">Inconnue / Enquête nécessaire</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Localisation précise</label>
+                    <input type="text" class="form-control" placeholder="Quartier ou Nom de l'exploitation">
+                </div>
+
+                <div class="form-group">
+                    <label>Observations Cliniques</label>
+                    <textarea class="form-control" rows="3" placeholder="Symptômes ou détails importants..."></textarea>
+                </div>
+
+                <button type="button" class="btn-submit" onclick="sendAlert()">ENVOYER L'ALERTE ONE HEALTH</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- SECTION: GUIDES (PROTOCOLES) -->
+    <div id="guides" class="content-section">
+        <div class="card">
+            <h2><i class="fa-solid fa-book-medical"></i> Bibliothèque de Prévention</h2>
+            <p style="font-size: 12px; color: #7f8c8d; margin-bottom: 15px;">Documents officiels et guides de protection :</p>
+            
+            <!-- روابط قابلة للفتح -->
+            <a href="https://www.who.int/docs/default-source/documents/publications/brucellosis-in-humans-and-animals.pdf" target="_blank" class="guide-link">
+                <div>
+                    <p style="font-weight: bold; font-size: 14px;">Guide de Prévention One Health</p>
+                    <small style="color: #95a5a6;">Instructions pour les éleveurs</small>
+                </div>
+                <i class="fa-solid fa-file-pdf pdf-icon"></i>
+            </a>
+
+            <a href="https://extranet.who.int/iris/bitstream/handle/10665/43207/9241546717_eng.pdf" target="_blank" class="guide-link">
+                <div>
+                    <p style="font-weight: bold; font-size: 14px;">Protocole National de Lutte</p>
+                    <small style="color: #95a5a6;">Normes de surveillance épidémio</small>
+                </div>
+                <i class="fa-solid fa-file-pdf pdf-icon"></i>
+            </a>
+
+            <a href="#" onclick="alert('Téléchargement du Manuel de Désinfection (El-Djir)...')" class="guide-link">
+                <div>
+                    <p style="font-weight: bold; font-size: 14px;">Manuel de Désinfection (El-Djir)</p>
+                    <small style="color: #95a5a6;">Techniques d'assainissement</small>
+                </div>
+                <i class="fa-solid fa-file-pdf pdf-icon"></i>
+            </a>
+        </div>
+        
+        <div class="card" style="background: #e8f4fd;">
+            <h2 style="border-color: #3498db;">Conseils d'Hygiène</h2>
+            <ul style="font-size: 13px; color: #2c3e50; line-height: 1.6; padding-left: 20px;">
+                <li>Toujours bouillir le lait cru avant consommation.</li>
+                <li>Porter des gants lors de la manipulation du "S'la".</li>
+                <li>Désinfecter les bergeries avec de la chaux vive.</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- BOTTOM NAV -->
+    <nav class="bottom-nav">
+        <div class="nav-item active" onclick="switchSection('home', this)">
+            <i class="fa-solid fa-chart-pie"></i><span>Tableau</span>
+        </div>
+        <div class="nav-item" onclick="switchSection('report', this)">
+            <i class="fa-solid fa-circle-exclamation"></i><span>Alerte</span>
+        </div>
+        <div class="nav-item" onclick="switchSection('guides', this)">
+            <i class="fa-solid fa-file-shield"></i><span>Guides</span>
+        </div>
+    </nav>
+
+    <!-- SCRIPTS -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <script>
+        // Navigation Logic
+        function switchSection(id, el) {
+            document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            el.classList.add('active');
+            if(id === 'home') { setTimeout(() => map.invalidateSize(), 200); }
+        }
+
+        // Dashboard Chart (Monthly Trend)
+        const ctx = document.getElementById('trendChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin'],
+                datasets: [{
+                    label: 'Nombre de Cas',
+                    data: [8, 15, 22, 35, 30, 28], // أرقام افتراضية توضح الزيادة والنقصان
+                    borderColor: '#1a5276',
+                    backgroundColor: 'rgba(26, 82, 118, 0.1)',
+                    borderWidth: 3,
+                    tension: 0.4,
+                    fill: true,
+                    pointBackgroundColor: '#27ae60'
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: true } }
+            }
+        });
+
+        // Map Setup
+        var map = L.map('map', {zoomControl: false}).setView([33.5503, -0.2833], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        L.circle([33.555, -0.285], {color: 'red', radius: 400}).addTo(map).bindPopup("Zone Rouge: Forte incidence");
+
+        function sendAlert() {
+            alert("✅ Alerte One Health envoyée !\nLes services vétérinaires (DSV) et le BHC ont été notifiés en temps réel.");
+            document.getElementById('alertForm').reset();
+            switchSection('home', document.querySelector('.nav-item'));
+        }
+    </script>
+</body>
+</html>
