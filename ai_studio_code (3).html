@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SIMOS-B Mobile - One Health</title>
+    
+    <!-- CSS & Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <style>
+        :root {
+            --primary: #1a5276; --secondary: #27ae60; --danger: #e74c3c;
+            --warning: #f39c12; --bg: #f8f9fa; --white: #ffffff;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Roboto', sans-serif; -webkit-tap-highlight-color: transparent; }
+        body { background-color: var(--bg); padding-bottom: 70px; overflow-x: hidden; }
+
+        /* Header Mobile */
+        .mobile-header {
+            background: var(--primary); color: white; padding: 15px;
+            display: flex; justify-content: space-between; align-items: center;
+            position: sticky; top: 0; z-index: 1000; box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .alert-badge {
+            background: var(--danger); font-size: 10px; padding: 2px 8px; border-radius: 10px;
+        }
+
+        /* Stats Grid */
+        .grid-stats {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 15px;
+        }
+        .stat-card {
+            background: var(--white); padding: 15px; border-radius: 12px;
+            text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            border-bottom: 4px solid var(--primary);
+        }
+        .stat-card h3 { font-size: 24px; color: var(--primary); margin-bottom: 5px; }
+        .stat-card p { font-size: 11px; color: #666; font-weight: bold; text-transform: uppercase; }
+
+        /* Content Sections */
+        .content-section { display: none; padding: 10px; animation: fadeIn 0.3s; }
+        .content-section.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        .card { background: var(--white); border-radius: 15px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+        h2 { font-size: 18px; margin-bottom: 15px; color: var(--primary); }
+
+        /* Bottom Nav */
+        .bottom-nav {
+            position: fixed; bottom: 0; width: 100%; background: var(--white);
+            display: flex; justify-content: space-around; padding: 10px 0;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.1); z-index: 1000;
+        }
+        .nav-item { text-align: center; color: #95a5a6; flex: 1; cursor: pointer; transition: 0.3s; }
+        .nav-item i { font-size: 20px; display: block; margin-bottom: 3px; }
+        .nav-item span { font-size: 10px; font-weight: bold; }
+        .nav-item.active { color: var(--primary); }
+
+        /* Forms */
+        .form-group { margin-bottom: 12px; }
+        label { display: block; font-size: 13px; font-weight: bold; margin-bottom: 5px; color: #34495e; }
+        .form-control { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; }
+        .btn-submit { background: var(--secondary); color: white; border: none; padding: 15px; width: 100%; border-radius: 10px; font-weight: bold; margin-top: 10px; }
+
+        /* Map & List */
+        #map { height: 250px; border-radius: 12px; width: 100%; margin-bottom: 10px; }
+        .emergency-item {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 12px 0; border-bottom: 1px solid #eee;
+        }
+        .phone-link { color: var(--danger); text-decoration: none; font-weight: bold; font-size: 14px; }
+    </style>
+</head>
+<body>
+
+    <!-- HEADER -->
+    <header class="mobile-header">
+        <div>
+            <i class="fa-solid fa-virus-shield"></i>
+            <span style="font-weight:bold; margin-left:5px;">SIMOS-B Mécheria</span>
+        </div>
+        <div class="alert-badge">3 Alertes</div>
+    </header>
+
+    <!-- TAB: HOME / DASHBOARD -->
+    <div id="home" class="content-section active">
+        <div class="grid-stats">
+            <div class="stat-card"><h3>35</h3><p>Cas Humains</p></div>
+            <div class="stat-card"><h3>12</h3><p>Foyers Actifs</p></div>
+            <div class="stat-card"><h3>20</h3><p>Dépistages</p></div>
+            <div class="stat-card" style="border-color: var(--warning);"><h3>05</h3><p>Alertes Lait</p></div>
+        </div>
+
+        <div class="card">
+            <h2><i class="fa-solid fa-map-location-dot"></i> Zones à Risque</h2>
+            <div id="map"></div>
+        </div>
+
+        <div class="card">
+            <h2><i class="fa-solid fa-chart-line"></i> Tendance mensuelle</h2>
+            <canvas id="myChart" height="200"></canvas>
+        </div>
+    </div>
+
+    <!-- TAB: REPORT -->
+    <div id="report" class="content-section">
+        <div class="card">
+            <h2><i class="fa-solid fa-file-medical"></i> Nouveau Signalement</h2>
+            <form id="mobileForm">
+                <div class="form-group">
+                    <label>Type de Cas</label>
+                    <select class="form-control">
+                        <option>Humain</option>
+                        <option>Animal (Bétail)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Localisation</label>
+                    <input type="text" class="form-control" placeholder="Quartier ou Zone Rurale">
+                </div>
+                <div class="form-group">
+                    <label>Observations</label>
+                    <textarea class="form-control" rows="3" placeholder="Symptômes ou situation..."></textarea>
+                </div>
+                <button type="button" class="btn-submit" onclick="alert('Signalement envoyé !')">ENVOYER L'ALERTE</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- TAB: EMERGENCY -->
+    <div id="emergency" class="content-section">
+        <div class="card">
+            <h2><i class="fa-solid fa-phone-flip"></i> Numéros d'Urgence</h2>
+            <div class="emergency-item">
+                <span>Hôpital (Urgences)</span>
+                <a href="tel:049572222" class="phone-link">049 57 22 22</a>
+            </div>
+            <div class="emergency-item">
+                <span>Vétérinaire (DSA)</span>
+                <a href="tel:049571100" class="phone-link">049 57 11 00</a>
+            </div>
+            <div class="emergency-item">
+                <span>Protection Civile</span>
+                <a href="tel:14" class="phone-link">14 / 1021</a>
+            </div>
+            <div class="emergency-item" style="border:none;">
+                <span>Hygiène (BHC)</span>
+                <a href="tel:049573344" class="phone-link">049 57 33 44</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB: PROTOCOLS -->
+    <div id="protocols" class="content-section">
+        <div class="card">
+            <h2><i class="fa-solid fa-book-medical"></i> Bibliothèque Médicale</h2>
+            <div class="emergency-item">
+                <span><i class="fa-solid fa-file-pdf" style="color:var(--danger)"></i> <strong>Le Guide de Prévention</strong></span>
+                <i class="fa-solid fa-download" style="color:var(--primary)"></i>
+            </div>
+            <div class="emergency-item">
+                <span><i class="fa-solid fa-file-pdf" style="color:var(--danger)"></i> Protocole National Lutte</span>
+                <i class="fa-solid fa-download" style="color:var(--primary)"></i>
+            </div>
+            <div class="emergency-item" style="border:none;">
+                <span><i class="fa-solid fa-file-pdf" style="color:var(--danger)"></i> Désinfection (El-Djir)</span>
+                <i class="fa-solid fa-download" style="color:var(--primary)"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- BOTTOM NAVIGATION -->
+    <nav class="bottom-nav">
+        <div class="nav-item active" onclick="switchTab('home', this)">
+            <i class="fa-solid fa-house"></i><span>Accueil</span>
+        </div>
+        <div class="nav-item" onclick="switchTab('report', this)">
+            <i class="fa-solid fa-plus-circle"></i><span>Alerte</span>
+        </div>
+        <div class="nav-item" onclick="switchTab('emergency', this)">
+            <i class="fa-solid fa-phone"></i><span>Urgence</span>
+        </div>
+        <div class="nav-item" onclick="switchTab('protocols', this)">
+            <i class="fa-solid fa-file-invoice"></i><span>Guides</span>
+        </div>
+    </nav>
+
+    <!-- SCRIPTS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script>
+        // Tab Switch Logic
+        function switchTab(tabId, el) {
+            document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            el.classList.add('active');
+            if(tabId === 'home') { setTimeout(() => map.invalidateSize(), 100); }
+        }
+
+        // Initialize Map
+        var map = L.map('map', {zoomControl: false}).setView([33.5503, -0.2833], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        L.circle([33.555, -0.285], {color: 'red', radius: 300}).addTo(map);
+
+        // Initialize Chart
+        const ctx = document.getElementById('myChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['Mar', 'Avr', 'Mai', 'Juin'],
+                datasets: [{
+                    label: 'Cas Humains',
+                    data: [19, 28, 35, 30],
+                    backgroundColor: '#1a5276',
+                    borderRadius: 5
+                }]
+            },
+            options: { responsive: true, plugins: { legend: { display: false } } }
+        });
+    </script>
+</body>
+</html>
